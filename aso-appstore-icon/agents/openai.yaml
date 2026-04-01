@@ -1,0 +1,4 @@
+interface:
+  display_name: "ASO App Store Icon"
+  short_description: "Audit and generate App Store icon concepts"
+  default_prompt: "Use $aso-appstore-icon to analyze my app, audit the current icon, draft concepts, and generate App Store-ready icon directions."
