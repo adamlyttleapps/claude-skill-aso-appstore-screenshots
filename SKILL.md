@@ -1,6 +1,7 @@
 ---
 name: aso-appstore-screenshots
 description: Use when the user wants to plan, critique, or generate App Store screenshots for an iOS app, especially when they mention ASO screenshots, screenshot pairing, simulator screenshots, benefit headlines, or App Store screenshot design. Uses compose.py for deterministic scaffolds and Gemini MCP for image enhancement.
+user-invocable: true
 metadata:
   version: 1.0.0
 ---
@@ -19,7 +20,14 @@ Always resume from saved state before redoing work.
 
 ## State Ledger (Always First)
 
-Use `.codex/aso-appstore-screenshots/state.json` in the user's app project as the only persisted source of truth.
+Use a project-local JSON ledger as the persisted source of truth.
+
+Resolve the ledger path in this order:
+
+1. `.agents/aso-appstore-screenshots/state.json` if it already exists
+2. `.codex/aso-appstore-screenshots/state.json` if it already exists
+3. `.claude/aso-appstore-screenshots/state.json` if it already exists
+4. Otherwise create `.agents/aso-appstore-screenshots/state.json`
 
 - Read it before doing any codebase analysis.
 - If it does not exist, treat every field as empty and create it as soon as you have confirmed data.
@@ -154,13 +162,10 @@ The user can provide:
 - Individual file paths
 - A glob pattern
 
-Inspect every local screenshot with `view_image`.
+Inspect every local screenshot with the local-image tool available in the current runtime.
 
-When presenting local screenshots back to the user in Codex, render them inline with absolute paths:
-
-```markdown
-![Screenshot candidate](/absolute/path/to/screenshot.png)
-```
+- In Codex, use `view_image` and render local images inline with absolute paths when showing options back to the user.
+- In Claude Code, use the local image preview or file-reading workflow available in that runtime.
 
 ### Step 2: Assess each screenshot honestly
 
@@ -223,13 +228,18 @@ Before generating, verify that `generate_image`, `edit_image`, and `load_image_f
 If they are missing, stop and tell the user:
 
 ```text
-Gemini MCP is not configured for Codex.
+Gemini MCP is not configured for this runtime.
 
-Run:
+For Codex, run:
   codex mcp add gemini --env GEMINI_API_KEY=your-api-key-here -- npx -y @houtini/gemini-mcp
   codex mcp get gemini
 
 Codex stores MCP servers in ~/.codex/config.toml.
+
+For Claude Code, configure an MCP server that runs:
+  env GEMINI_API_KEY=your-api-key-here VERBOSE=true -- npx -y @houtini/gemini-mcp
+
+Use ~/.claude/settings.json for a user-level server or project .mcp.json for a repo-local server.
 See: https://github.com/houtini-ai/gemini-mcp
 ```
 
@@ -301,15 +311,23 @@ For each confirmed benefit:
 
 #### Step 1: Build the scaffold
 
-The skill lives in a Codex skill discovery directory. Resolve it from a user or repo `.agents/skills` location. Use:
+The skill can live in a Codex or Claude Code skill discovery directory. Resolve it from the runtime-specific or shared locations. Use:
 
 ```bash
 if [ -d "$HOME/.agents/skills/aso-appstore-screenshots" ]; then
   SKILL_DIR="$HOME/.agents/skills/aso-appstore-screenshots"
 elif [ -d ".agents/skills/aso-appstore-screenshots" ]; then
   SKILL_DIR="$PWD/.agents/skills/aso-appstore-screenshots"
+elif [ -d "$HOME/.claude/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots"
+elif [ -d ".claude/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$PWD/.claude/skills/aso-appstore-screenshots"
+elif [ -d "$HOME/.codex/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$HOME/.codex/skills/aso-appstore-screenshots"
+elif [ -d ".codex/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$PWD/.codex/skills/aso-appstore-screenshots"
 else
-  echo "aso-appstore-screenshots is not installed in ~/.agents/skills or .agents/skills" >&2
+  echo "aso-appstore-screenshots is not installed in a supported skill directory" >&2
   exit 1
 fi
 mkdir -p "screenshots/NN-[benefit-slug]"
@@ -464,7 +482,7 @@ Update `generation.items` immediately after each approval.
 ### Output layout
 
 ```text
-.codex/
+.agents/
   aso-appstore-screenshots/
     state.json
 screenshots/
@@ -496,8 +514,16 @@ if [ -d "$HOME/.agents/skills/aso-appstore-screenshots" ]; then
   SKILL_DIR="$HOME/.agents/skills/aso-appstore-screenshots"
 elif [ -d ".agents/skills/aso-appstore-screenshots" ]; then
   SKILL_DIR="$PWD/.agents/skills/aso-appstore-screenshots"
+elif [ -d "$HOME/.claude/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots"
+elif [ -d ".claude/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$PWD/.claude/skills/aso-appstore-screenshots"
+elif [ -d "$HOME/.codex/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$HOME/.codex/skills/aso-appstore-screenshots"
+elif [ -d ".codex/skills/aso-appstore-screenshots" ]; then
+  SKILL_DIR="$PWD/.codex/skills/aso-appstore-screenshots"
 else
-  echo "aso-appstore-screenshots is not installed in ~/.agents/skills or .agents/skills" >&2
+  echo "aso-appstore-screenshots is not installed in a supported skill directory" >&2
   exit 1
 fi
 python3 "$SKILL_DIR/showcase.py" \

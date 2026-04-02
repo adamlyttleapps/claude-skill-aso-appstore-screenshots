@@ -1,11 +1,11 @@
 # ASO App Store Creative Skills
 
-This repository now contains two Codex skills for App Store creative work:
+This repository contains two App Store creative skills:
 
 1. **`aso-appstore-screenshots`** — plans, critiques, and generates screenshot sets for iOS apps
 2. **`aso-appstore-icon`** — audits the current icon, drafts distinct directions, and generates App Store-ready icon concepts
 
-Both skills are designed for Codex, both use Gemini MCP for image generation and editing, and both keep project-local resume state inside the consuming app repository.
+The screenshot skill supports both Codex and Claude Code. The app-icon skill is currently documented for Codex packaging.
 
 ## Included Skills
 
@@ -32,18 +32,20 @@ The app-icon skill:
 
 ## Installation
 
-Codex discovers skills by folder. The screenshot skill lives at the repository root. The app-icon skill lives in the [`aso-appstore-icon/`](aso-appstore-icon) subdirectory and must be installed as its own skill folder.
+The screenshot skill lives at the repository root. The app-icon skill lives in the [`aso-appstore-icon/`](aso-appstore-icon) subdirectory and must be installed as its own skill folder.
 
-### 1. Install the screenshot skill
+### 1. Install the screenshot skill for Codex
 
-Clone the repository into your user skills directory using the screenshot skill name as the destination folder:
+Codex discovers user skills from `~/.agents/skills/` and project skills from `.agents/skills/`.
+
+Global install:
 
 ```bash
 mkdir -p "$HOME/.agents/skills"
 git clone https://github.com/confianick/claude-skill-aso-appstore-screenshots "$HOME/.agents/skills/aso-appstore-screenshots"
 ```
 
-If you are developing this repository in place, symlink the repository root instead:
+In-place development symlink:
 
 ```bash
 mkdir -p "$HOME/.agents/skills"
@@ -51,7 +53,21 @@ rm -f "$HOME/.agents/skills/aso-appstore-screenshots"
 ln -s "$(pwd)" "$HOME/.agents/skills/aso-appstore-screenshots"
 ```
 
-### 2. Install the app-icon skill
+### 2. Install the screenshot skill for Claude Code
+
+Claude Code discovers user skills from `~/.claude/skills/` and project skills from `.claude/skills/`.
+
+Global in-place development symlink:
+
+```bash
+mkdir -p "$HOME/.claude/skills"
+rm -f "$HOME/.claude/skills/aso-appstore-screenshots"
+ln -s "$(pwd)" "$HOME/.claude/skills/aso-appstore-screenshots"
+```
+
+If you prefer a project-local install inside a consuming app repository, use `.claude/skills/aso-appstore-screenshots`.
+
+### 3. Install the app-icon skill for Codex
 
 Symlink the subfolder as its own skill:
 
@@ -64,11 +80,12 @@ ln -s "$(pwd)/aso-appstore-icon" "$HOME/.agents/skills/aso-appstore-icon"
 If you are installing into a consuming app repository instead of your global user skills directory, use:
 
 - `.agents/skills/aso-appstore-screenshots` for the screenshot skill
+- `.claude/skills/aso-appstore-screenshots` for the screenshot skill in Claude Code
 - `.agents/skills/aso-appstore-icon` for the icon skill
 
-Restart Codex after installing or updating either skill.
+Restart Codex or Claude Code after installing or updating a skill.
 
-### 3. Install Python dependencies
+### 4. Install Python dependencies
 
 Both skills use Pillow-based local helpers:
 
@@ -76,7 +93,7 @@ Both skills use Pillow-based local helpers:
 python3 -m pip install Pillow
 ```
 
-### 4. Install the screenshot font dependency
+### 5. Install the screenshot font dependency
 
 The screenshot scaffold renderer uses **SF Pro Display Black** for headline text. On macOS, install it from [Apple's developer fonts](https://developer.apple.com/fonts/). The expected path is:
 
@@ -86,9 +103,11 @@ The screenshot scaffold renderer uses **SF Pro Display Black** for headline text
 
 The icon helpers do not require this exact font. They fall back gracefully if SF Pro display fonts are unavailable.
 
-### 5. Configure Gemini MCP
+### 6. Configure Gemini MCP
 
-Both skills use Gemini as the generation and editing backend. Register [@houtini/gemini-mcp](https://www.npmjs.com/package/@houtini/gemini-mcp) with Codex:
+Both skills use Gemini as the generation and editing backend.
+
+For Codex:
 
 ```bash
 codex mcp add gemini --env GEMINI_API_KEY=your-api-key-here -- npx -y @houtini/gemini-mcp
@@ -97,21 +116,41 @@ codex mcp get gemini
 
 Codex stores MCP server registrations in `~/.codex/config.toml`.
 
+For Claude Code, register the same server command in your Claude MCP config:
+
+```text
+env GEMINI_API_KEY=your-api-key-here VERBOSE=true -- npx -y @houtini/gemini-mcp
+```
+
+Use `~/.claude/settings.json` for a user-level server or a project `.mcp.json` for a repo-local server.
+
 If Gemini image generation or editing returns `429 RESOURCE_EXHAUSTED` with zero image quota, generation cannot continue. Enable billing or image-model quota for the Gemini project backing `GEMINI_API_KEY`, then resume later.
 
 ## Usage
 
-From inside an app project, invoke the relevant skill explicitly in your prompt:
+### Screenshot skill in Codex
+
+From inside an app project, invoke the screenshot skill explicitly in your prompt:
 
 ```text
 $aso-appstore-screenshots
 ```
 
+You can also use the Codex skills picker or slash-command list once the skill is installed.
+
+### Screenshot skill in Claude Code
+
+Claude Code can discover the screenshot skill automatically from `.claude/skills/` or `~/.claude/skills/` when the request matches the skill description.
+
+For explicit use, ask Claude Code to use `aso-appstore-screenshots` for the current app-store creative task. If your Claude Code build exposes user-invocable skills as slash commands, `/aso-appstore-screenshots` also works.
+
+### App-icon skill in Codex
+
 ```text
 $aso-appstore-icon
 ```
 
-You can also use the Codex skills picker or slash-command list once the skills are installed.
+You can also use the Codex skills picker or slash-command list once the icon skill is installed.
 
 ## State And Output
 
@@ -120,8 +159,10 @@ You can also use the Codex skills picker or slash-command list once the skills a
 Resume state is stored at:
 
 ```text
-.codex/aso-appstore-screenshots/state.json
+.agents/aso-appstore-screenshots/state.json
 ```
+
+Legacy state at `.codex/aso-appstore-screenshots/state.json` or `.claude/aso-appstore-screenshots/state.json` is still recognized and reused.
 
 Generated assets are stored under:
 
@@ -171,6 +212,7 @@ app-icon/
 |------|---------|
 | `SKILL.md` | Screenshot skill prompt and workflow |
 | `agents/openai.yaml` | Screenshot skill UI metadata |
+| `CLAUDE.md` | Claude Code guidance for the screenshot skill |
 | `compose.py` | Deterministic screenshot scaffold generator |
 | `generate_frame.py` | Regenerates the screenshot device frame template |
 | `showcase.py` | Builds the final screenshot showcase image |

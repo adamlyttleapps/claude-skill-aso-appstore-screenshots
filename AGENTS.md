@@ -4,14 +4,15 @@ This file provides repository-specific guidance when working in this skill repos
 
 ## What This Is
 
-A Codex skill (`aso-appstore-screenshots`) that guides users through creating high-converting App Store screenshots. It is invoked from a user's app project with `$aso-appstore-screenshots` or through the Codex skills picker.
+The repository root is the `aso-appstore-screenshots` skill, which guides users through creating high-converting App Store screenshots. It supports both Codex and Claude Code.
 
 ## Architecture
 
 The main pieces are:
 
-- **SKILL.md** — The skill prompt. Defines the multi-phase workflow: Benefit Discovery → Screenshot Pairing → Generation → Showcase. Resume state is stored in the consuming app project at `.codex/aso-appstore-screenshots/state.json`.
+- **SKILL.md** — The skill prompt. Defines the multi-phase workflow: Benefit Discovery → Screenshot Pairing → Generation → Showcase. Resume state is stored in a project-local JSON ledger, defaulting to `.agents/aso-appstore-screenshots/state.json` while still reusing legacy `.codex/...` or `.claude/...` state if present.
 - **agents/openai.yaml** — Codex UI metadata for display name, short description, and default prompt.
+- **CLAUDE.md** — Claude Code guidance for the root screenshot skill.
 - **compose.py** — A standalone Python compositing script (Pillow-based) that deterministically renders App Store screenshots. Takes a background hex colour, action verb, benefit descriptor, and simulator screenshot path, then produces a pixel-perfect 1290×2796 PNG with headline text, device frame template, and the screenshot composited inside. The verb text auto-sizes to fit the canvas width.
 - **generate_frame.py** — Generates the device frame template PNG (`assets/device_frame.png`). Run once to create or update the template. The template is a 1290×2796 RGBA PNG with a black iPhone body, transparent screen cutout, Dynamic Island, and side buttons.
 - **showcase.py** — Generates a showcase image showing up to 3 final screenshots side-by-side with an optional GitHub link at the bottom. Used as the final step after all screenshots are approved.
@@ -19,11 +20,13 @@ The main pieces are:
 
 ## Skill Runtime Assumptions
 
-- Keep the repository name unchanged; Codex is the supported runtime.
-- The user's app project receives generated assets under `screenshots/` plus the resume ledger under `.codex/aso-appstore-screenshots/state.json`.
+- Keep the repository name unchanged.
+- The root screenshot skill supports both Codex and Claude Code.
+- The user's app project receives generated assets under `screenshots/` plus the resume ledger under `.agents/aso-appstore-screenshots/state.json` by default.
+- Existing `.codex/aso-appstore-screenshots/state.json` and `.claude/aso-appstore-screenshots/state.json` ledgers should continue to work.
 - Gemini MCP remains the image-enhancement backend.
 - Codex local skill discovery is expected from `.agents/skills/` in a repo or `$HOME/.agents/skills/` for a user install.
-- For a global user install, resolve the skill from `SKILL_DIR="$HOME/.agents/skills/aso-appstore-screenshots"`.
+- Claude Code local skill discovery is expected from `.claude/skills/` in a repo or `$HOME/.claude/skills/` for a user install.
 
 ## Running compose.py
 
@@ -47,7 +50,7 @@ python3 compose.py \
 - **Verb text auto-sizes** — shrinks from 172px down to 100px to fit multi-word verbs (e.g. "TURN YOURSELF") within the canvas width.
 - **SKILL.md always generates 3 versions in parallel** for each benefit so the user can pick the best one.
 - **The crop/resize step in SKILL.md is mandatory** after every `generate_image` or `edit_image` call — raw Gemini output is never the correct dimensions for App Store Connect.
-- **Project-local state is central to the workflow** — benefits, screenshot assessments, pairings, brand colour, and generation state are all persisted so users can resume across Codex conversations.
+- **Project-local state is central to the workflow** — benefits, screenshot assessments, pairings, brand colour, and generation state are all persisted so users can resume across Codex or Claude Code conversations.
 
 ## Verification
 
@@ -58,5 +61,4 @@ python3 -m py_compile compose.py generate_frame.py showcase.py
 git diff --check
 ```
 
-Also confirm `SKILL.md` and `README.md` do not reintroduce Claude-specific installation, memory, or tool instructions.
-Also confirm they do not drift back to outdated global skill-install guidance.
+Also confirm `SKILL.md`, `README.md`, `AGENTS.md`, and `CLAUDE.md` stay aligned on which parts are Codex-specific, Claude-specific, or shared.
