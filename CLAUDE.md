@@ -1,42 +1,46 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with the root `aso-appstore-screenshots` skill in this repository.
 
 ## What This Is
 
-A Claude Code skill (`aso-appstore-screenshots`) that guides users through creating high-converting App Store screenshots. It is invoked via the `/aso-appstore-screenshots` slash command from within a user's app project.
+The repository root is the `aso-appstore-screenshots` skill. It supports both Claude Code and Codex, but this file is the Claude Code-facing guidance.
+
+## Runtime Assumptions
+
+- Claude Code discovers the skill from `.claude/skills/aso-appstore-screenshots` in a project or `$HOME/.claude/skills/aso-appstore-screenshots` for a user install.
+- The skill uses a project-local JSON ledger for resumability. Prefer `.agents/aso-appstore-screenshots/state.json`, but keep using `.codex/aso-appstore-screenshots/state.json` or `.claude/aso-appstore-screenshots/state.json` if one already exists for the app.
+- Gemini MCP remains the image-enhancement backend.
+- `user-invocable: true` is intentionally kept in `SKILL.md` for Claude Code compatibility.
 
 ## Architecture
 
-Four files + one asset make up the skill:
+The main pieces are:
 
-- **SKILL.md** — The skill prompt. Defines a multi-phase workflow: Benefit Discovery → Screenshot Pairing → Generation. Uses Claude Code's memory system to persist state across conversations so users can resume mid-workflow. Generation first creates a deterministic scaffold via compose.py, then sends it to Nano Banana Pro for AI enhancement.
-- **compose.py** — A standalone Python compositing script (Pillow-based) that deterministically renders App Store screenshots. Takes a background hex colour, action verb, benefit descriptor, and simulator screenshot path, then produces a pixel-perfect 1290×2796 PNG with headline text, device frame template, and the screenshot composited inside. The verb text auto-sizes to fit the canvas width.
-- **generate_frame.py** — Generates the device frame template PNG (`assets/device_frame.png`). Run once to create or update the template. The template is a 1290×2796 RGBA PNG with a black iPhone body, transparent screen cutout, Dynamic Island, and side buttons.
-- **showcase.py** — Generates a showcase image showing up to 3 final screenshots side-by-side with an optional GitHub link at the bottom. Used as the final step after all screenshots are approved.
-- **assets/device_frame.png** — Pre-rendered iPhone device frame template used by compose.py. Using a template instead of drawing the frame at compose time ensures pixel-perfect consistency across all generated screenshots.
+- **SKILL.md** — The shared skill prompt. Defines the multi-phase workflow: Benefit Discovery → Screenshot Pairing → Generation → Showcase.
+- **compose.py** — A Pillow-based compositor that renders deterministic 1290×2796 screenshot scaffolds with the headline text, device frame template, and simulator screenshot.
+- **generate_frame.py** — Regenerates `assets/device_frame.png`.
+- **showcase.py** — Generates the final side-by-side preview of approved screenshots.
+- **assets/device_frame.png** — Pre-rendered iPhone frame template used by `compose.py`.
 
-## Running compose.py
+## Working Conventions
+
+- Keep Claude Code and Codex support aligned instead of treating one as legacy.
+- When editing runtime instructions, document Claude-specific and Codex-specific behavior separately if they differ.
+- Prefer shared project-local state and shared helper scripts over runtime-specific logic in Python code.
+- Do not reintroduce the old Claude memory-file workflow unless explicitly requested. The shared JSON ledger replaced it.
+
+## Verification
+
+Run these checks after changing the screenshot skill packaging or prompt:
 
 ```bash
-# Requires: pip install Pillow
-# Requires: SF Pro Display Black font at /Library/Fonts/SF-Pro-Display-Black.otf
-
-python3 compose.py \
-  --bg "#E31837" \
-  --verb "TRACK" \
-  --desc "TRADING CARD PRICES" \
-  --screenshot path/to/simulator.png \
-  --output output.png \
-  --accent  # optional: adds dark arc behind device
+python3 -m py_compile compose.py generate_frame.py showcase.py
+git diff --check
 ```
 
-## Key Design Decisions
+Also confirm:
 
-- **Two-stage generation**: compose.py creates a deterministic scaffold first (text + frame + screenshot), then Nano Banana Pro enhances it. This avoids the inconsistencies of generating from scratch.
-- **compose.py outputs exact App Store Connect dimensions** (1290×2796 for iPhone 6.7") — no post-processing crop needed.
-- **Device frame is a template image** (`assets/device_frame.png`) — not drawn at compose time. Regenerate with `python3 generate_frame.py` if the frame design needs updating.
-- **Verb text auto-sizes** — shrinks from 172px down to 100px to fit multi-word verbs (e.g. "TURN YOURSELF") within the canvas width.
-- **SKILL.md always generates 3 versions in parallel** for each benefit so the user can pick the best one.
-- **The crop/resize step in SKILL.md is mandatory** after every `generate_image` or `edit_image` call — raw Nano Banana output is never the correct dimensions for App Store Connect.
-- **Memory is central to the workflow** — benefits, screenshot assessments, pairings, brand colour, and generation state are all persisted so users can resume across conversations.
+- `README.md`, `SKILL.md`, `AGENTS.md`, and `CLAUDE.md` agree on dual-runtime support
+- the screenshot skill still resolves from `.agents/skills` and `.claude/skills`
+- legacy `.codex` and `.claude` state ledgers remain accepted if they already exist in a consuming app

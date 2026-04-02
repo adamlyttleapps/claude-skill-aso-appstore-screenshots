@@ -1,0 +1,4 @@
+interface:
+  display_name: "ASO App Store Screenshots"
+  short_description: "Design and generate App Store screenshot sets"
+  default_prompt: "Use $aso-appstore-screenshots to analyze my app, pair simulator screenshots, and generate an App Store-ready screenshot set."
