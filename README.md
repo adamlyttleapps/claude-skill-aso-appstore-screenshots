@@ -25,11 +25,13 @@ pip install Pillow
 
 ### 3. Font requirement
 
-The skill uses **SF Pro Display Black** for headline text. On macOS, install it from [Apple's developer fonts](https://developer.apple.com/fonts/). The expected path is:
+The skill defaults to **SF Pro Display Black** for headline text. On macOS, install it from [Apple's developer fonts](https://developer.apple.com/fonts/). The expected path is:
 
 ```
 /Library/Fonts/SF-Pro-Display-Black.otf
 ```
+
+You can also use any custom font installed in `/Library/Fonts/`. The skill will ask which font you'd like during the generation phase. To use a custom font, just provide the filename (e.g., `Inter-Black.otf`, `Montserrat-Black.ttf`).
 
 ### 4. Set up Gemini MCP (for AI enhancement)
 
