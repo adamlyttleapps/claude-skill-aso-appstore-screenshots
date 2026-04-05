@@ -288,9 +288,15 @@ For each benefit + screenshot pair, generate **3 enhanced versions in parallel**
 
 Before generating any scaffolds, save the confirmed brand colour to the Claude Code memory system. Create or update the benefits memory file (e.g., `aso_benefits.md`) to include the brand colour name and hex code. This ensures the colour persists across conversations and is available immediately if the user resumes later.
 
-**Step 1: Create the scaffold with compose.py**
+**Step 1: Ask the user which font to use**
 
-The compose.py script lives in the skill directory. Run it to create the deterministic base screenshot.
+Ask the user which font they'd like for the screenshot headlines. The script auto-detects a platform default (SF Pro Display Black on macOS, Noto Sans Black on Linux, Arial Bold on Windows), so if the user says "default" or doesn't have a preference, omit the `--font` flag.
+
+They can provide a font filename (e.g., `Inter-Black.otf`) or a full path (e.g., `/usr/share/fonts/truetype/noto/NotoSans-Black.ttf`). Save the chosen font to memory alongside the brand colour so it persists across conversations.
+
+**Step 2: Create the scaffold with compose.py**
+
+The compose.py script lives in the skill directory. Run it to create the deterministic base screenshot. If the user chose a custom font, pass `--font "filename.otf"` to each compose.py call. If using the default, omit `--font`.
 
 **IMPORTANT — Batch all 3 scaffolds into a single Bash call** to minimize permission prompts. Chain the commands with `&&` so the user only needs to approve once:
 
@@ -299,14 +305,17 @@ SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots" && \
 mkdir -p screenshots/01-[benefit-slug] screenshots/02-[benefit-slug] screenshots/03-[benefit-slug] && \
 python3 "$SKILL_DIR/compose.py" \
   --bg "[HEX CODE]" --verb "[VERB 1]" --desc "[DESC 1]" \
+  --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-1.png] \
   --output screenshots/01-[benefit-slug]/scaffold.png && \
 python3 "$SKILL_DIR/compose.py" \
   --bg "[HEX CODE]" --verb "[VERB 2]" --desc "[DESC 2]" \
+  --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-2.png] \
   --output screenshots/02-[benefit-slug]/scaffold.png && \
 python3 "$SKILL_DIR/compose.py" \
   --bg "[HEX CODE]" --verb "[VERB 3]" --desc "[DESC 3]" \
+  --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-3.png] \
   --output screenshots/03-[benefit-slug]/scaffold.png
 ```
@@ -317,9 +326,9 @@ This outputs pixel-perfect 1290×2796 PNGs with:
 - Simulator screenshot composited inside the frame
 - Solid background colour
 
-The scaffolds are internal intermediates — do NOT show them to the user or ask for confirmation. Proceed immediately to Step 2 (Nano Banana enhancement).
+The scaffolds are internal intermediates — do NOT show them to the user or ask for confirmation. Proceed immediately to Step 3 (Nano Banana enhancement).
 
-**Step 2: Enhance with Nano Banana Pro (3 versions in parallel)**
+**Step 3: Enhance with Nano Banana Pro (3 versions in parallel)**
 
 Make **3 parallel `edit_image` calls**. The parallel execution is critical — always fire all 3 calls in a single message, never sequentially.
 
@@ -392,7 +401,7 @@ No watermarks, no extra text, no app store UI chrome.
 
 **IMPORTANT — Consistency enforcement**: The scaffold guarantees consistent layout. The style template guarantees consistent visual treatment. If Nano Banana changes the text, layout, or deviates from the style template, regenerate.
 
-**Step 3: IMMEDIATELY crop and resize ALL 3 versions to App Store dimensions**
+**Step 4: IMMEDIATELY crop and resize ALL 3 versions to App Store dimensions**
 
 ⚠️ **You MUST run this immediately after all 3 `edit_image` calls complete. Do NOT show the user any image before running this. The raw Nano Banana output is always the wrong dimensions for App Store Connect.**
 
@@ -421,13 +430,13 @@ Target dimensions per display size — adjust `TARGET_W` and `TARGET_H`:
 - iPhone 6.7" (default): `TARGET_W=1290 TARGET_H=2796`
 - iPhone 6.9": `TARGET_W=1320 TARGET_H=2868`
 
-**Step 4: Review all 3 versions with the user**
+**Step 5: Review all 3 versions with the user**
 
 Present all 3 **resized** versions (the `-resized.jpg` files) to the user using the Read tool. Never show the raw Nano Banana output — always show the post-processed versions.
 
 Label them clearly as **Version 1**, **Version 2**, and **Version 3** and ask the user to pick their favourite or request changes.
 
-**Step 5: Iterate if needed**
+**Step 6: Iterate if needed**
 
 If the user wants changes, use `edit_image` with **three images** as input:
 1. The **scaffold** (`scaffold.png`) — anchors the layout (text position, device placement, screenshot)
@@ -452,7 +461,7 @@ When iterating, generate **3 versions in parallel** again (3 parallel `edit_imag
 
 Repeat until the user is happy.
 
-**Step 6: Copy approved version to `final/`**
+**Step 7: Copy approved version to `final/`**
 
 Once the user picks a winner, copy the resized version to `screenshots/final/`:
 
