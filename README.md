@@ -86,6 +86,7 @@ The `final/` folder contains App Store-ready screenshots at exact Apple dimensio
 |------|---------|
 | `SKILL.md` | The skill prompt — defines the multi-phase workflow |
 | `compose.py` | Deterministic scaffold generator (Pillow-based) |
+| `resize.py` | Cross-platform crop and resize to exact store dimensions (Pillow-based) |
 | `generate_frame.py` | Generates the device frame template |
 | `showcase.py` | Generates the side-by-side showcase image |
 | `assets/device_frame.png` | Pre-rendered iPhone device frame template |

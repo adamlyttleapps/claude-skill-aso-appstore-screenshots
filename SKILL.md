@@ -396,7 +396,22 @@ No watermarks, no extra text, no app store UI chrome.
 
 ⚠️ **You MUST run this immediately after all 3 `edit_image` calls complete. Do NOT show the user any image before running this. The raw Nano Banana output is always the wrong dimensions for App Store Connect.**
 
-**CRITICAL — Use exactly ONE Bash tool call for all 3 crop/resize operations.** Do NOT make 3 separate Bash calls. Do NOT use parallel Bash calls. Use the single loop below so the user only sees one permission prompt:
+**CRITICAL — Use exactly ONE Bash tool call for all 3 crop/resize operations.** Do NOT make 3 separate Bash calls. Do NOT use parallel Bash calls. Use the single command below so the user only sees one permission prompt.
+
+**Option A — Cross-platform (recommended, works on macOS/Linux/Windows):**
+
+```bash
+SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots" && \
+python3 "$SKILL_DIR/resize.py" \
+  --width 1290 --height 2796 \
+  screenshots/01-[benefit-slug]/v1.jpg \
+  screenshots/01-[benefit-slug]/v2.jpg \
+  screenshots/01-[benefit-slug]/v3.jpg
+```
+
+The resize.py script (Pillow-based) crops to the correct aspect ratio (center-crop with top edge preserved so headlines stay put) and resizes to exact pixel dimensions. Each resized image is saved alongside the original with a `-resized` suffix (e.g., `v1-resized.jpg`).
+
+**Option B — macOS only (using sips):**
 
 ```bash
 TARGET_W=1290 && TARGET_H=2796 && \
@@ -414,7 +429,7 @@ for INPUT in screenshots/01-[benefit-slug]/v1.jpg screenshots/01-[benefit-slug]/
 done
 ```
 
-The script crops to the correct aspect ratio (top-center aligned — sides trimmed equally, top edge preserved so the headline stays put) and resizes to exact pixel dimensions. The resized image is saved as a separate file with `-resized.jpg` appended.
+Both options crop to the correct aspect ratio (top-center aligned, sides trimmed equally, top edge preserved) and resize to exact pixel dimensions. The resized image is saved as a separate file with `-resized` appended.
 
 Target dimensions per display size — adjust `TARGET_W` and `TARGET_H`:
 - iPhone 6.5": `TARGET_W=1242 TARGET_H=2688`
@@ -448,7 +463,7 @@ Generate a new version that keeps the layout from the scaffold, the device frame
 
 This prevents drift (scaffold keeps layout locked), maintains set-wide consistency (style template keeps device frame and visual treatment identical), and preserves the creative direction the user already approved.
 
-When iterating, generate **3 versions in parallel** again (3 parallel `edit_image` calls in a single message). Then **immediately run the Step 3 crop/resize loop on all 3 in a single Bash call** before showing the user.
+When iterating, generate **3 versions in parallel** again (3 parallel `edit_image` calls in a single message). Then **immediately run the Step 3 crop/resize (Option A or B) on all 3 in a single Bash call** before showing the user.
 
 Repeat until the user is happy.
 
