@@ -17,10 +17,11 @@ Before doing ANY codebase analysis, check the Claude Code memory system for all 
 **Check memory for each of these (in order):**
 
 1. **Benefits** — confirmed benefit headlines + target audience + app context
-2. **Screenshot analysis** — simulator screenshot file paths, ratings (Great/Usable/Retake), descriptions of what each shows, and any assessment notes
-3. **Pairings** — which simulator screenshot is paired with which benefit
-4. **Brand colour** — the confirmed background colour (name + hex)
-5. **Generated screenshots** — file paths to generated and resized screenshots, which benefits they correspond to
+2. **Localizations** — confirmed target languages (name + ISO 639-1 code) and per-benefit translated headlines (verb + descriptor per language), plus back-translation confirmations
+3. **Screenshot analysis** — simulator screenshot file paths, ratings (Great/Usable/Retake), descriptions of what each shows, and any assessment notes
+4. **Pairings** — which simulator screenshot is paired with which benefit
+5. **Brand colour** — the confirmed background colour (name + hex)
+6. **Generated screenshots** — file paths to generated and resized screenshots, keyed by (language, benefit)
 
 **Present a status summary to the user** showing what's saved and what phase they're at. For example:
 
@@ -28,12 +29,13 @@ Before doing ANY codebase analysis, check the Claude Code memory system for all 
 Here's where we left off:
 
 ✅ Benefits (3 confirmed): TRACK CARD PRICES, SEARCH ANY CARD, BUILD YOUR COLLECTION
+✅ Localizations: English (en), French (fr), German (de) — translations confirmed
 ✅ Screenshots analysed (5 provided, 4 rated Great/Usable)
 ✅ Pairings confirmed
 ✅ Brand colour: Electric Blue (#2563EB)
-⏳ Generation: 2 of 3 screenshots generated
+⏳ Generation: English set complete, French set 2 of 3 generated, German set not started
 
-Ready to continue generating screenshot 3, or would you like to change anything?
+Ready to continue with French screenshot 3, or would you like to change anything?
 ```
 
 **Then let the user decide what to do:**
@@ -120,6 +122,100 @@ Once the user confirms the final benefits, save them to the Claude Code memory s
 - Any reasoning or user preferences noted during refinement (e.g., "user prefers 'TRACK' over 'MONITOR'")
 
 This means the user won't need to redo benefit discovery in future conversations. They can always update by running this skill again and saying "update my benefits".
+
+---
+
+## LOCALIZATION
+
+App Store Connect lets you ship a separate screenshot set per locale. This phase asks which languages to localize the screenshot headlines into, validates them, translates the verb + descriptor for every confirmed benefit, and has the user sanity-check each translation via back-translation before generation runs.
+
+**IMPORTANT:** Only run this phase if no confirmed localizations exist in memory, or if the user explicitly asks to add/change languages.
+
+### Step 1: Ask the user which languages to localize for
+
+Ask the user which languages they want screenshot headlines translated into. Make it explicit that:
+- Default is **English only** — if they don't want localization, just confirm English.
+- They can supply a comma-separated list (e.g. "english, french, german, ukrainian").
+- Only languages written in **Latin or Cyrillic script** are supported — explain that the compose.py font pipeline (SF Pro Display Black, or any user-chosen font from `/Library/Fonts/`) only reliably renders Latin and Cyrillic glyphs. Languages using CJK, Arabic, Hebrew, Devanagari, Thai, Greek, Georgian, Armenian, etc. will be rejected.
+
+Always include English in the final language set even if the user omits it — it's the default fallback locale on the App Store.
+
+### Step 2: Validate languages
+
+For each language the user requested:
+
+1. **Confirm it is a real, recognized natural language.** Reject typos and made-up names with a clarification prompt.
+2. **Confirm its primary writing system is Latin or Cyrillic.** Reject anything else with a clear, specific message that names the script and explains why it can't be supported. Example: "Japanese uses Kanji and Kana — not supported, the font pipeline only handles Latin/Cyrillic glyphs."
+3. **Map each accepted language to its ISO 639-1 code.** This code is used as the folder name under `screenshots/` and `screenshots/final/`.
+
+**Accepted (Latin or Cyrillic):**
+- Latin: English (en), French (fr), German (de), Spanish (es), Italian (it), Portuguese (pt), Dutch (nl), Swedish (sv), Danish (da), Norwegian (no), Finnish (fi), Polish (pl), Czech (cs), Slovak (sk), Hungarian (hu), Romanian (ro), Croatian (hr), Slovenian (sl), Estonian (et), Latvian (lv), Lithuanian (lt), Turkish (tr), Vietnamese (vi).
+- Cyrillic: Russian (ru), Ukrainian (uk), Belarusian (be), Bulgarian (bg), Serbian (sr, Cyrillic variant), Macedonian (mk), Kazakh (kk, Cyrillic variant).
+
+**Rejected (other scripts) — call out the script in the rejection message:**
+- Chinese (Han), Japanese (Kanji/Kana), Korean (Hangul), Arabic (Arabic), Hebrew (Hebrew), Persian/Farsi (Arabic), Hindi and other Indic languages (Devanagari and related), Thai (Thai), Khmer (Khmer), Lao (Lao), Burmese (Myanmar), Amharic (Ge'ez), Greek (Greek), Georgian (Mkhedruli), Armenian (Armenian).
+
+Present a confirmed/rejected summary back to the user:
+
+```
+Languages confirmed:
+  ✅ English (en)
+  ✅ French (fr)
+  ✅ German (de)
+  ✅ Russian (ru)
+
+Languages rejected:
+  ❌ Japanese — uses Kanji/Kana, not Latin/Cyrillic. The font pipeline can't render these glyphs.
+
+Proceed with these 4 languages?
+```
+
+Block on user confirmation before moving on.
+
+### Step 3: Translate the headlines
+
+For every confirmed benefit, translate **both the action verb and the descriptor** into each non-English target language. Constraints:
+
+- **Stay short.** The verb should ideally be one word; the descriptor should stay within compose.py's auto-fit width (the script shrinks the verb from 172px down to 100px to fit). German in particular tends to be longer than English — pick concise translations.
+- **Stay uppercase-friendly.** compose.py uppercases automatically, but pick translations that read naturally in uppercase (e.g. avoid compound words that lose meaning when uppercased).
+- **Preserve the imperative / action-verb feel.** "TRACK" → "SUIVRE" (fr) / "VERFOLGEN" (de) / "ОТСЛЕЖИВАЙ" (ru). Don't switch to a noun or a passive construction.
+- **Preserve the user-benefit framing.** Don't translate literally if a more natural phrasing better matches the original benefit's intent.
+
+### Step 4: Back-translate and confirm
+
+For each non-English language, back-translate the verb + descriptor independently into English and present a round-trip table to the user. Example:
+
+```
+French (fr):
+  TRACK CARD PRICES → SUIVRE LES PRIX DES CARTES → "TRACK CARD PRICES" ✓
+  SEARCH ANY CARD   → CHERCHER N'IMPORTE QUELLE CARTE → "SEARCH ANY CARD" ✓
+
+German (de):
+  TRACK CARD PRICES → KARTENPREISE VERFOLGEN → "TRACK CARD PRICES" ✓
+  SEARCH ANY CARD   → JEDE KARTE FINDEN → "FIND ANY CARD" ⚠ (slight drift — "find" vs "search")
+
+Russian (ru):
+  TRACK CARD PRICES → ОТСЛЕЖИВАЙ ЦЕНЫ НА КАРТЫ → "TRACK CARD PRICES" ✓
+  SEARCH ANY CARD   → НАЙДИ ЛЮБУЮ КАРТУ → "FIND ANY CARD" ⚠
+```
+
+Flag any line where the back-translation drifts noticeably from the original meaning. Offer alternatives for the user to pick from when drift occurs.
+
+DO NOT proceed to generation until the user explicitly approves each language's translations. The user can:
+- Approve as-is
+- Edit any specific verb or descriptor
+- Ask for alternative translations for any line
+
+### Step 5: Save to memory
+
+Once translations are approved, save them to the Claude Code memory system. Create or update `aso_localizations.md` with:
+
+- **Confirmed languages** — list of (language name, ISO 639-1 code) pairs
+- **Per-benefit translation table** — for each benefit, the original English verb + descriptor and the translated verb + descriptor in each target language
+- **Back-translation results** — the round-trip English for each non-English translation (lets you re-verify on future runs without re-translating)
+- **User edits** — note any translations the user manually edited or chose from alternatives, so future runs don't suggest changing them again
+
+This is critical for resumability. If the user comes back later, they should not have to re-translate or re-confirm.
 
 ---
 
@@ -280,9 +376,11 @@ Generation uses a two-stage approach for consistency:
 1. **Stage 1 (Scaffold)**: compose.py creates a deterministic local image with the correct text, device frame, and screenshot. This guarantees consistent layout across all screenshots.
 2. **Stage 2 (Enhance)**: The scaffold is sent to Nano Banana Pro to add breakout elements, depth, and visual polish.
 
-**The first approved screenshot becomes the style template for the entire set.** All subsequent screenshots are enhanced using both their own scaffold (for layout) AND the first approved screenshot (for style). This ensures every screenshot in the set has the same device frame rendering, text treatment, background style, and overall visual quality — so when viewed side-by-side in the App Store, they look like a cohesive professional set.
+**The first approved screenshot becomes the style template for the entire set — per language.** All subsequent screenshots within the same language set are enhanced using both their own scaffold (for layout) AND the first approved screenshot in that language (for style). This ensures every screenshot in a language's set has the same device frame rendering, text treatment, background style, and overall visual quality — so when viewed side-by-side in the App Store, they look like a cohesive professional set. Each language keeps its own style template to avoid Nano Banana leaking source-language text into translated screenshots.
 
-For each benefit + screenshot pair, generate **3 enhanced versions in parallel** so the user can pick the best one.
+**Iterate one language at a time, fully completing each language's set before starting the next.** This avoids burning tokens regenerating every locale after a fix. Default to starting with **English (en)** since it's almost always present and serves as the reference.
+
+For each benefit + screenshot pair (within the active language), generate **3 enhanced versions in parallel** so the user can pick the best one.
 
 **Step 0: Save brand colour to memory**
 
@@ -300,25 +398,29 @@ The compose.py script lives in the skill directory. Run it to create the determi
 
 **IMPORTANT — Batch all 3 scaffolds into a single Bash call** to minimize permission prompts. Chain the commands with `&&` so the user only needs to approve once:
 
+Substitute `[LANG]` with the active language's ISO 639-1 code (e.g. `en`, `fr`, `de`, `ru`). Use the translated verb and descriptor for that language (from `aso_localizations.md`).
+
 ```bash
 SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots" && \
-mkdir -p screenshots/01-[benefit-slug] screenshots/02-[benefit-slug] screenshots/03-[benefit-slug] && \
+mkdir -p screenshots/[LANG]/01-[benefit-slug] screenshots/[LANG]/02-[benefit-slug] screenshots/[LANG]/03-[benefit-slug] && \
 python3 "$SKILL_DIR/compose.py" \
-  --bg "[HEX CODE]" --verb "[VERB 1]" --desc "[DESC 1]" \
+  --bg "[HEX CODE]" --verb "[VERB 1 in LANG]" --desc "[DESC 1 in LANG]" \
   --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-1.png] \
-  --output screenshots/01-[benefit-slug]/scaffold.png && \
+  --output screenshots/[LANG]/01-[benefit-slug]/scaffold.png && \
 python3 "$SKILL_DIR/compose.py" \
-  --bg "[HEX CODE]" --verb "[VERB 2]" --desc "[DESC 2]" \
+  --bg "[HEX CODE]" --verb "[VERB 2 in LANG]" --desc "[DESC 2 in LANG]" \
   --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-2.png] \
-  --output screenshots/02-[benefit-slug]/scaffold.png && \
+  --output screenshots/[LANG]/02-[benefit-slug]/scaffold.png && \
 python3 "$SKILL_DIR/compose.py" \
-  --bg "[HEX CODE]" --verb "[VERB 3]" --desc "[DESC 3]" \
+  --bg "[HEX CODE]" --verb "[VERB 3 in LANG]" --desc "[DESC 3 in LANG]" \
   --font "[FONT_FILE or omit flag]" \
   --screenshot [path/to/screenshot-3.png] \
-  --output screenshots/03-[benefit-slug]/scaffold.png
+  --output screenshots/[LANG]/03-[benefit-slug]/scaffold.png
 ```
+
+If the active language is Cyrillic (ru, uk, be, bg, sr, mk, kk) and the user chose a custom font, verify that font has Cyrillic glyph coverage — if compose.py produces tofu (□ □ □) instead of real letters, surface the error to the user and ask them to pick a font with Cyrillic support (or fall back to the default SF Pro Display Black, which has full Cyrillic coverage).
 
 This outputs pixel-perfect 1290×2796 PNGs with:
 - Bold white headline text (verb auto-sized to fit canvas width)
@@ -335,15 +437,15 @@ Make **3 parallel `edit_image` calls**. The parallel execution is critical — a
 For each of the 3 calls, use:
 - `prompt`: Enhancement instructions (see prompt templates below — different for first vs subsequent screenshots)
 - `images`: See below for which images to include
-- `outputPath`: Different path for each version:
-  - `./screenshots/01-[benefit-slug]/v1.jpg`
-  - `./screenshots/01-[benefit-slug]/v2.jpg`
-  - `./screenshots/01-[benefit-slug]/v3.jpg`
+- `outputPath`: Different path for each version (under the active language's folder):
+  - `./screenshots/[LANG]/01-[benefit-slug]/v1.jpg`
+  - `./screenshots/[LANG]/01-[benefit-slug]/v2.jpg`
+  - `./screenshots/[LANG]/01-[benefit-slug]/v3.jpg`
 
-#### First screenshot (no approved template yet)
+#### First screenshot (no approved template yet for this language)
 
 Use only the scaffold as input:
-- `images`: The scaffold via `filePath` pointing to `screenshots/01-[benefit-slug]/scaffold.png`
+- `images`: The scaffold via `filePath` pointing to `screenshots/[LANG]/01-[benefit-slug]/scaffold.png`
 
 **First screenshot prompt template:**
 
@@ -371,8 +473,8 @@ The final result should look like it was designed by a professional App Store sc
 #### Subsequent screenshots (after first is approved)
 
 Use **two images** as input:
-1. The **scaffold** for this benefit (`screenshots/0N-[benefit-slug]/scaffold.png`) — defines the layout
-2. The **first approved screenshot** (`screenshots/final/01-[first-benefit-slug].jpg`) — defines the style template
+1. The **scaffold** for this benefit in the active language (`screenshots/[LANG]/0N-[benefit-slug]/scaffold.png`) — defines the layout
+2. The **first approved screenshot in this same language** (`screenshots/final/[LANG]/01-[first-benefit-slug].jpg`) — defines the style template. Do NOT use a different language's screenshot as the style template — it would risk leaking source-language headline text into translated outputs.
 
 **Subsequent screenshot prompt template:**
 
@@ -409,7 +511,7 @@ No watermarks, no extra text, no app store UI chrome.
 
 ```bash
 TARGET_W=1290 && TARGET_H=2796 && \
-for INPUT in screenshots/01-[benefit-slug]/v1.jpg screenshots/01-[benefit-slug]/v2.jpg screenshots/01-[benefit-slug]/v3.jpg; do
+for INPUT in screenshots/[LANG]/01-[benefit-slug]/v1.jpg screenshots/[LANG]/01-[benefit-slug]/v2.jpg screenshots/[LANG]/01-[benefit-slug]/v3.jpg; do
   OUTPUT="${INPUT%.jpg}-resized.jpg"
   cp "$INPUT" "$OUTPUT"
   W=$(sips -g pixelWidth "$OUTPUT" | tail -1 | awk '{print $2}')
@@ -439,8 +541,8 @@ Label them clearly as **Version 1**, **Version 2**, and **Version 3** and ask th
 **Step 6: Iterate if needed**
 
 If the user wants changes, use `edit_image` with **three images** as input:
-1. The **scaffold** (`scaffold.png`) — anchors the layout (text position, device placement, screenshot)
-2. The **style template** (the first approved screenshot from `screenshots/final/01-*.jpg`) — defines the device frame rendering and overall visual style that must be consistent across the entire set
+1. The **scaffold** (`screenshots/[LANG]/0N-[benefit-slug]/scaffold.png`) — anchors the layout (text position, device placement, screenshot)
+2. The **style template** (the first approved screenshot in the same language, `screenshots/final/[LANG]/01-*.jpg`) — defines the device frame rendering and overall visual style that must be consistent across this language's set
 3. The **approved design** (the version the user liked best for this specific screenshot) — anchors the creative direction and breakout element approach
 
 The prompt should reference all three:
@@ -461,16 +563,16 @@ When iterating, generate **3 versions in parallel** again (3 parallel `edit_imag
 
 Repeat until the user is happy.
 
-**Step 7: Copy approved version to `final/`**
+**Step 7: Copy approved version to `final/[LANG]/`**
 
-Once the user picks a winner, copy the resized version to `screenshots/final/`:
+Once the user picks a winner, copy the resized version to `screenshots/final/[LANG]/`:
 
 ```bash
-mkdir -p screenshots/final
-cp "screenshots/01-[benefit-slug]/v2-resized.jpg" "screenshots/final/01-[benefit-slug].jpg"
+mkdir -p screenshots/final/[LANG]
+cp "screenshots/[LANG]/01-[benefit-slug]/v2-resized.jpg" "screenshots/final/[LANG]/01-[benefit-slug].jpg"
 ```
 
-This keeps `final/` clean — only approved, App Store-ready screenshots, one per benefit, numbered in order. Then move to the next benefit.
+This keeps `final/[LANG]/` clean — only approved, App Store-ready screenshots for that language, one per benefit, numbered in order. Then move to the next benefit. Once every benefit in the active language is approved, move to the next language and repeat from Step 2.
 
 ### Determine Brand Colour (Automatic)
 
@@ -492,30 +594,36 @@ The brand colour is saved to memory in Step 0 of the generation process, before 
 
 ### Output
 
-Save generated screenshots to a `screenshots/` directory in the project root, organised by benefit subfolder:
+Save generated screenshots to a `screenshots/` directory in the project root, organised by **language** then **benefit**:
 
 ```
 screenshots/
-  01-track-card-prices/       ← working versions for benefit 1
-    scaffold.png              ← deterministic compose.py output (text + frame + screenshot)
-    v1.jpg                    ← Nano Banana enhanced version 1
-    v1-resized.jpg            ← cropped/resized to App Store dimensions
-    v2.jpg
-    v2-resized.jpg
-    v3.jpg
-    v3-resized.jpg
-  02-search-any-card/         ← working versions for benefit 2
-    scaffold.png
-    v1.jpg
-    ...
-  final/                      ← approved screenshots, ready to upload
-    01-track-card-prices.jpg
-    02-search-any-card.jpg
+  en/                                ← working versions for English
+    01-track-card-prices/
+      scaffold.png                   ← deterministic compose.py output (text + frame + screenshot)
+      v1.jpg                         ← Nano Banana enhanced version 1
+      v1-resized.jpg                 ← cropped/resized to App Store dimensions
+      v2.jpg
+      v2-resized.jpg
+      v3.jpg
+      v3-resized.jpg
+    02-search-any-card/
+      ...
+  fr/                                ← working versions for French (same structure, translated headlines)
+    01-track-card-prices/
+      ...
+  final/                             ← approved screenshots, ready to upload, grouped by language
+    en/
+      01-track-card-prices.jpg
+      02-search-any-card.jpg
+    fr/
+      01-track-card-prices.jpg
+      02-search-any-card.jpg
 ```
 
-The `final/` folder is the only one the user needs to care about — it contains one approved, App Store-ready screenshot per benefit, numbered in order. The benefit subfolders contain all working versions and can be ignored or deleted after the set is complete.
+The `final/[LANG]/` folders are the only ones the user needs to care about — each contains one approved, App Store-ready screenshot per benefit for that language, numbered in order. Each `final/[LANG]/` folder maps directly to one App Store Connect locale slot. The per-language working folders contain all versions and can be ignored or deleted after the set is complete.
 
-Also tell the user exactly which App Store Connect display size slot each screenshot fits into.
+Also tell the user exactly which App Store Connect display size slot AND locale each screenshot fits into.
 
 ### Save to Memory
 
@@ -523,32 +631,34 @@ After each screenshot is generated (or after the full set is complete), save gen
 
 - **Brand colour**: name + hex code
 - **Target display size**: e.g., iPhone 6.7" (1290x2796)
-- **For each generated screenshot**:
-  - Benefit headline (ACTION VERB + DESCRIPTOR)
-  - Benefit subfolder path (e.g., `screenshots/01-track-card-prices/`)
+- **For each generated screenshot** (key by `(language, benefit)`):
+  - Language (name + ISO code, e.g. "French (fr)")
+  - Benefit headline as rendered in that language (translated ACTION VERB + DESCRIPTOR)
+  - Original English benefit headline (so the cross-language mapping is obvious)
+  - Benefit subfolder path (e.g., `screenshots/fr/01-track-card-prices/`)
   - Which version the user chose (v1, v2, or v3)
-  - Final file path (e.g., `screenshots/final/01-track-card-prices.jpg`)
+  - Final file path (e.g., `screenshots/final/fr/01-track-card-prices.jpg`)
   - Simulator screenshot used (file path)
   - Breakout elements described in the prompt
   - Status: generated / approved / needs-redo
   - Any user feedback or change requests noted
 
-Update this memory **incrementally** — after each screenshot is approved, add it. Don't wait until the end. This way if the conversation is interrupted mid-set, the user can resume from the last completed screenshot.
+Update this memory **incrementally** — after each screenshot is approved, add it. Don't wait until the end. This way if the conversation is interrupted mid-language or mid-set, the user can resume from the last completed screenshot in the active language.
 
 ### Showcase Image
 
-Once ALL screenshots in the set are approved and saved to `final/`, generate a showcase image that displays up to 3 of the final screenshots side-by-side with a GitHub link. Use the showcase.py script in the skill directory:
+Once ALL screenshots in a language's set are approved and saved to `final/[LANG]/`, generate a showcase image for that language that displays up to 3 of the final screenshots side-by-side with a GitHub link. Use the showcase.py script in the skill directory:
 
 ```bash
 SKILL_DIR="$HOME/.claude/skills/aso-appstore-screenshots"
 
 python3 "$SKILL_DIR/showcase.py" \
-  --screenshots screenshots/final/01-*.jpg screenshots/final/02-*.jpg screenshots/final/03-*.jpg \
+  --screenshots screenshots/final/[LANG]/01-*.jpg screenshots/final/[LANG]/02-*.jpg screenshots/final/[LANG]/03-*.jpg \
   --github "github.com/adamlyttleapps" \
-  --output screenshots/showcase.png
+  --output screenshots/showcase-[LANG].png
 ```
 
-Show the showcase image to the user using the Read tool. This is a shareable preview of the full screenshot set.
+Run this once per language after that language's set is complete. Show each showcase image to the user using the Read tool — it's a shareable preview of that language's screenshot set.
 
 ---
 
