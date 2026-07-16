@@ -31,6 +31,13 @@ The skill uses **SF Pro Display Black** for headline text. On macOS, install it 
 /Library/Fonts/SF-Pro-Display-Black.otf
 ```
 
+On Linux/CI (or to use a different face), point the compositors at any bold
+display font instead:
+
+```bash
+export ASO_FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+```
+
 ### 4. Set up Gemini MCP (for AI enhancement)
 
 The generation phase requires [@houtini/gemini-mcp](https://www.npmjs.com/package/@houtini/gemini-mcp) to be configured as an MCP server in Claude Code:
@@ -62,6 +69,35 @@ Rather than generating screenshots from scratch (which produces inconsistent res
 
 This ensures consistent layout across all screenshots while letting AI handle the creative enhancement.
 
+### Offline alternative: `frame_compose.py`
+
+`frame_compose.py` is a second, fully-deterministic compositor that needs **no
+AI step**. It composites the screenshot into a device frame, floats it on a
+dark radial-glow background, and sets a sentence-case headline above it —
+producing an upload-ready 1290×2796 image on its own.
+
+```bash
+python3 frame_compose.py \
+  --screenshot path/to/simulator.png \
+  --line1 "Game night" --line2 "in your pocket" \
+  --output out.png
+```
+
+It is configured entirely through environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ASO_FRAME` | bundled placeholder | Path to a device frame PNG (transparent screen cutout + opaque Dynamic Island). |
+| `ASO_FONT` | per-platform system font | Bold display `.ttf`/`.otf` for the headline. |
+| `ASO_GLOW` | `150,92,255` | `R,G,B` of the background glow. |
+
+> **The bundled frame is a placeholder.** `assets/frame-placeholder.png` is a
+> plain, flat outline (regenerate it with `generate_frame_placeholder.py`) — it
+> exists only so the script runs out of the box. For production-quality output,
+> set `ASO_FRAME` to your own **photographic device render**. The screen
+> rectangle is detected from the frame's alpha channel, so any frame with a
+> transparent screen and an opaque island works as a drop-in replacement.
+
 ### Output
 
 Screenshots are saved to a `screenshots/` directory in your project:
@@ -86,9 +122,12 @@ The `final/` folder contains App Store-ready screenshots at exact Apple dimensio
 |------|---------|
 | `SKILL.md` | The skill prompt — defines the multi-phase workflow |
 | `compose.py` | Deterministic scaffold generator (Pillow-based) |
+| `frame_compose.py` | Offline "floating device" compositor (no AI step) |
 | `generate_frame.py` | Generates the device frame template |
+| `generate_frame_placeholder.py` | Generates the placeholder frame for `frame_compose.py` |
 | `showcase.py` | Generates the side-by-side showcase image |
 | `assets/device_frame.png` | Pre-rendered iPhone device frame template |
+| `assets/frame-placeholder.png` | Placeholder frame for `frame_compose.py` (replace via `ASO_FRAME`) |
 
 ## License
 
