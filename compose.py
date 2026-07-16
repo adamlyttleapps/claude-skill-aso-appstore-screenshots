@@ -35,7 +35,15 @@ DESC_LINE_GAP = 24
 MAX_TEXT_W = int(CANVAS_W * 0.92)
 MAX_VERB_W = int(CANVAS_W * 0.92)
 
-FONT_PATH = "/Library/Fonts/SF-Pro-Display-Black.otf"
+# Headline font. Defaults to SF Pro Display Black on macOS; override with
+# ASO_FONT=/path/to/font.ttf on Linux/CI or to use a different face.
+FONT_PATH = os.environ.get("ASO_FONT", "/Library/Fonts/SF-Pro-Display-Black.otf")
+if not os.path.exists(FONT_PATH):
+    raise SystemExit(
+        f"Font not found: {FONT_PATH}\n"
+        "The default is macOS-only. Set ASO_FONT=/path/to/font.ttf to a bold "
+        "display .ttf/.otf (e.g. a DejaVu/Liberation/Arial bold on Linux/CI)."
+    )
 FRAME_PATH = os.path.join(os.path.dirname(__file__), "assets", "device_frame.png")
 
 
