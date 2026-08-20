@@ -8,11 +8,12 @@ side-by-side on a white background with an optional GitHub link at the bottom.
 import argparse
 from PIL import Image, ImageDraw, ImageFont
 
+from fonts import load_font
+
 # ── Layout ──────────────────────────────────────────────────────────
 PADDING = 60
 GAP = 40
 BOTTOM_BAR_H = 100
-FONT_PATH = "/Library/Fonts/SF-Pro-Display-Regular.otf"
 FONT_SIZE_MAX = 48
 FONT_SIZE_MIN = 16
 TEXT_COLOUR = "#000000"
@@ -24,14 +25,14 @@ def fit_text_font(text, max_w, size_max, size_min):
     dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     for size in range(size_max, size_min - 1, -2):
         try:
-            font = ImageFont.truetype(FONT_PATH, size)
+            font = load_font(size, "Regular")
         except OSError:
             font = ImageFont.load_default()
             return font
         bbox = dummy.textbbox((0, 0), text, font=font)
         if (bbox[2] - bbox[0]) <= max_w:
             return font
-    return ImageFont.truetype(FONT_PATH, size_min)
+    return load_font(size_min, "Regular")
 
 
 def create_showcase(screenshots, output_path, github_url=None):

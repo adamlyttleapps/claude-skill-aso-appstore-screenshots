@@ -10,7 +10,9 @@ matching the proportions seen in professional App Store screenshots.
 
 import argparse
 import os
-from PIL import Image, ImageDraw, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageChops
+
+from fonts import load_font
 
 # ── Canvas ──────────────────────────────────────────────────────────
 CANVAS_W = 1290
@@ -35,7 +37,6 @@ DESC_LINE_GAP = 24
 MAX_TEXT_W = int(CANVAS_W * 0.92)
 MAX_VERB_W = int(CANVAS_W * 0.92)
 
-FONT_PATH = "/Library/Fonts/SF-Pro-Display-Black.otf"
 FRAME_PATH = os.path.join(os.path.dirname(__file__), "assets", "device_frame.png")
 
 
@@ -64,11 +65,11 @@ def fit_font(text, max_w, size_max, size_min):
     """Return the largest font size where text fits within max_w."""
     dummy = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     for size in range(size_max, size_min - 1, -4):
-        font = ImageFont.truetype(FONT_PATH, size)
+        font = load_font(size)
         bbox = dummy.textbbox((0, 0), text, font=font)
         if (bbox[2] - bbox[0]) <= max_w:
             return font
-    return ImageFont.truetype(FONT_PATH, size_min)
+    return load_font(size_min)
 
 
 def draw_centered(draw, y, text, font, max_w=None):
@@ -92,7 +93,7 @@ def compose(bg_hex, verb, desc, screenshot_path, output_path):
 
     # ── 2. Measure text, then center between top of canvas & device ─
     verb_font = fit_font(verb.upper(), MAX_VERB_W, VERB_SIZE_MAX, VERB_SIZE_MIN)
-    desc_font = ImageFont.truetype(FONT_PATH, DESC_SIZE)
+    desc_font = load_font(DESC_SIZE)
 
     # Measure total text block height (dry run at y=0)
     dummy = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
